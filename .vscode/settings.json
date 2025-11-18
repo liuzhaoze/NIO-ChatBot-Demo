@@ -3,7 +3,9 @@
     "python-envs.defaultPackageManager": "ms-python.python:pip",
     "python-envs.pythonProjects": [],
     "cSpell.words": [
+        "dashscope",
         "pyaudio",
+        "Qwen",
         "webrtcvad"
     ]
 }

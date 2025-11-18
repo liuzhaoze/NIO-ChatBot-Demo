@@ -3,6 +3,7 @@ import time
 import wave
 from pathlib import Path
 
+import dashscope
 import pyaudio
 import pygame
 import webrtcvad
@@ -129,13 +130,36 @@ def save_audio():
         wf.writeframes(b"".join(audio_frames))
     print(f"音频文件保存至: {audio_path}")
 
-    print("执行推理")
+    inference_thread = threading.Thread(target=inference, args=(audio_path,))
+    inference_thread.start()
 
     # 记录已保存的时间段
     saved_intervals.append((start_time, end_time))
 
     # 清空缓冲区
     segments_to_save.clear()
+
+
+dashscope.base_http_api_url = "https://dashscope.aliyuncs.com/api/v1"
+DASHSCOPE_API_KEY = "sk-de74ecf6058e4399a663e45b9fa8c17f"
+
+
+def inference(audio_file: Path):
+    # Qwen3-ASR
+    response = dashscope.MultiModalConversation.call(
+        api_key=DASHSCOPE_API_KEY,
+        model="qwen3-asr-flash",
+        messages=[{"role": "user", "content": [{"audio": f"file://{audio_file}"}]}],
+        result_format="message",
+        asr_options={"enable_itn": True},
+    )
+    content = response.output.choices[0].message.content
+
+    if content:
+        user_prompt = content[0]["text"]
+    else:
+        return
+    print(f"💬 ASR: {user_prompt}")
 
 
 def main():
