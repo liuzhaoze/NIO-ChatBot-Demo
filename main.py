@@ -1,9 +1,11 @@
 import threading
 import time
+import uuid
 import wave
 from pathlib import Path
 
 import dashscope
+import dify_client as dify
 import pyaudio
 import pygame
 import webrtcvad
@@ -142,6 +144,14 @@ def save_audio():
 
 dashscope.base_http_api_url = "https://dashscope.aliyuncs.com/api/v1"
 DASHSCOPE_API_KEY = "sk-de74ecf6058e4399a663e45b9fa8c17f"
+DIFY_BASE_URL = "http://100.85.209.38/v1"
+DIFY_API_KEY = "app-DZbOXTjLvuUsKCYUMa3MbW9O"
+USER_ID = str(uuid.uuid4())
+chat_client = dify.ChatClient(
+    api_key=DIFY_API_KEY,
+    base_url=DIFY_BASE_URL,
+)
+conversation_id = None
 
 
 def inference(audio_file: Path):
@@ -160,6 +170,22 @@ def inference(audio_file: Path):
     else:
         return
     print(f"💬 ASR: {user_prompt}")
+
+    # Dify Inference
+    global conversation_id
+    chat_response = chat_client.create_chat_message(
+        inputs={},
+        query=user_prompt,
+        user=USER_ID,
+        conversation_id=conversation_id,
+    )
+    chat_response.raise_for_status()
+    result = chat_response.json()
+
+    if conversation_id is None:
+        conversation_id = result.get("conversation_id")
+    answer = result.get("answer", "")
+    print(f"🤖 Dify: {answer}")
 
 
 def main():
