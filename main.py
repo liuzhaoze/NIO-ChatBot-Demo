@@ -1,11 +1,14 @@
+import asyncio
 import threading
 import time
 import uuid
 import wave
 from pathlib import Path
 
+import aiohttp
 import dashscope
 import dify_client as dify
+import langid
 import pyaudio
 import pygame
 import webrtcvad
@@ -186,6 +189,64 @@ def inference(audio_file: Path):
         conversation_id = result.get("conversation_id")
     answer = result.get("answer", "")
     print(f"🤖 Dify: {answer}")
+
+    language, _ = langid.classify(answer)
+    language_type = {
+        "zh": "Chinese",
+        "en": "English",
+    }
+
+    # Qwen3-TTS
+    global audio_file_count
+    asyncio.run(
+        save_tts_audio(
+            answer,
+            language_type.get(language, "Chinese"),
+            CACHE_DIR / f"tts_audio_{audio_file_count}.wav",
+        )
+    )
+    play_audio(CACHE_DIR / f"tts_audio_{audio_file_count}.wav")
+
+
+async def save_tts_audio(test: str, language: str, file_path: Path):
+    response = dashscope.MultiModalConversation.call(
+        model="qwen3-tts-flash",
+        api_key=DASHSCOPE_API_KEY,
+        text=test,
+        voice="Cherry",
+        language_type=language,
+        stream=False,
+    )
+
+    # 下载音频文件
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(response.output.audio.url) as resp:
+                resp.raise_for_status()
+                audio_content = await resp.read()
+
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(file_path, "wb") as f:
+                    f.write(audio_content)
+
+    except aiohttp.ClientError as e:
+        print(f"下载音频文件失败: {e}")
+    except IOError as e:
+        print(f"保存音频文件失败: {e}")
+
+
+def play_audio(file_path: Path):
+    try:
+        pygame.mixer.init()
+        pygame.mixer.music.load(str(file_path))
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            time.sleep(0.1)  # 等待音频播放完成
+        print("音频播放完成")
+    except Exception as e:
+        print(f"播放音频文件失败: {e}")
+    finally:
+        pygame.mixer.quit()
 
 
 def main():
