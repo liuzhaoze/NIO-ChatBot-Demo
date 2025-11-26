@@ -13,6 +13,10 @@ import pyaudio
 import pygame
 import webrtcvad
 
+# 用户信息
+TIMESTAMP = int(time.time())
+PHONE = "13800138000"
+
 # 参数设置
 AUDIO_RATE = 16_000
 AUDIO_CHANNELS = 1
@@ -52,7 +56,7 @@ def audio_recording():
     print("音频录制开始")
 
     while recording_active:
-        data = stream.read(AUDIO_CHUNK)
+        data = stream.read(AUDIO_CHUNK, exception_on_overflow=False)
         audio_buffer.append(data)
 
         # 每 0.5 秒执行一次 VAD
@@ -148,7 +152,7 @@ def save_audio():
 dashscope.base_http_api_url = "https://dashscope.aliyuncs.com/api/v1"
 DASHSCOPE_API_KEY = "sk-de74ecf6058e4399a663e45b9fa8c17f"
 DIFY_BASE_URL = "http://100.85.209.38/v1"
-DIFY_API_KEY = "app-DZbOXTjLvuUsKCYUMa3MbW9O"
+DIFY_API_KEY = "app-YqE7rzJSFCG4qLvEMAPJi7vB"
 USER_ID = str(uuid.uuid4())
 chat_client = dify.ChatClient(
     api_key=DIFY_API_KEY,
@@ -177,7 +181,7 @@ def inference(audio_file: Path):
     # Dify Inference
     global conversation_id
     chat_response = chat_client.create_chat_message(
-        inputs={},
+        inputs={"timestamp": TIMESTAMP, "phone": PHONE},
         query=user_prompt,
         user=USER_ID,
         conversation_id=conversation_id,
