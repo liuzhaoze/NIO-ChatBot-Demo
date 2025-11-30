@@ -3,6 +3,7 @@ import logging
 import os
 import signal
 import sys
+import threading
 
 import dashscope
 import pyaudio
@@ -12,6 +13,13 @@ from dashscope.audio.qwen_omni import (
     OmniRealtimeConversation,
 )
 from dashscope.audio.qwen_omni.omni_realtime import TranscriptionParams
+from dashscope.audio.qwen_tts_realtime import (
+    AudioFormat,
+    QwenTtsRealtime,
+    QwenTtsRealtimeCallback,
+)
+
+from B64PCMPlayer import B64PCMPlayer
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +97,72 @@ class ASRCallback(OmniRealtimeCallback):
             return
 
 
+tts_pya = None
+b64_player = None
+qwen_tts_realtime = None
+
+
+class TTSCallback(QwenTtsRealtimeCallback):
+
+    def __init__(self):
+        super().__init__()
+        self.finish_event = threading.Event()
+
+    def on_open(self) -> None:
+        global tts_pya
+        global b64_player
+        logger.info("[TTS] connection opened, init player")
+        tts_pya = pyaudio.PyAudio()
+        b64_player = B64PCMPlayer(tts_pya)
+
+    def on_close(self, close_status_code, close_msg) -> None:
+        logger.info(
+            f"[TTS] connection closed with code: {close_status_code}, msg: {close_msg}, destroy player"
+        )
+        global tts_pya
+        global b64_player
+        if b64_player:
+            b64_player.wait_for_complete()
+            b64_player.shutdown()
+            b64_player = None
+        if tts_pya:
+            tts_pya.terminate()
+            tts_pya = None
+
+    def on_event(self, response: str) -> None:
+        try:
+            global qwen_tts_realtime
+            global b64_player
+            type = response["type"]
+            if "session.created" == type:
+                logger.info(f"[TTS] start session: {response['session']['id']}")
+            if "response.created" == type:
+                print(f"[TTS] response created")
+            if "response.audio.delta" == type:
+                recv_audio_b64 = response["delta"]
+                b64_player.add_data(recv_audio_b64)
+            if "response.done" == type:
+                print(f"[TTS] response {qwen_tts_realtime.get_last_response_id()} done")
+            if "session.finished" == type:
+                logger.info("[TTS] session finished")
+                print(
+                    f"[Metric] session: {qwen_tts_realtime.get_session_id()}, "
+                    f"first audio delay: {qwen_tts_realtime.get_first_audio_delay()}"
+                )
+                self.finish_event.set()
+        except Exception as e:
+            logger.error(f"[TTS] {e}")
+            self.finish_event.set()
+            return
+
+    def wait_for_complete(self):
+        self.finish_event.wait()
+
+
+def inference_and_speak(text: str):
+    pass
+
+
 def signal_handler(sig, frame):
     print("Ctrl+C pressed, stop conversation...")
 
@@ -104,6 +178,11 @@ def signal_handler(sig, frame):
     if qwen_asr_realtime:
         qwen_asr_realtime.close()
         qwen_asr_realtime = None
+
+    global qwen_tts_realtime
+    if qwen_tts_realtime:
+        qwen_tts_realtime.close()
+        qwen_tts_realtime = None
 
     # Forcefully exit the program
     print("Conversation stopped")
@@ -135,6 +214,22 @@ def main():
             input_audio_format="pcm",
             corpus_text="这是一段中文对话",
         ),
+    )
+
+    logger.info("Initializing Qwen3 TTS Flash Realtime...")
+
+    global qwen_tts_realtime
+    tts_callback = TTSCallback()
+    qwen_tts_realtime = QwenTtsRealtime(
+        model="qwen3-tts-flash-realtime",
+        callback=tts_callback,
+    )
+
+    qwen_tts_realtime.connect()
+    qwen_tts_realtime.update_session(
+        voice="Cherry",
+        response_format=AudioFormat.PCM_24000HZ_MONO_16BIT,
+        mode="server_commit",
     )
 
     signal.signal(signal.SIGINT, signal_handler)
