@@ -1,9 +1,12 @@
 import base64
+import json
 import logging
 import os
 import signal
 import sys
 import threading
+import time
+import uuid
 
 import dashscope
 import pyaudio
@@ -18,6 +21,7 @@ from dashscope.audio.qwen_tts_realtime import (
     QwenTtsRealtime,
     QwenTtsRealtimeCallback,
 )
+from dify_client import ChatClient
 
 from B64PCMPlayer import B64PCMPlayer
 
@@ -80,6 +84,11 @@ class ASRCallback(OmniRealtimeCallback):
                 logger.info(f"[ASR] start session: {response['session']['id']}")
             if "input_audio_buffer.speech_started" == type:
                 print("======[ASR] Speech Start======")
+                # Interrupt current inference and TTS playback
+                global b64_player, interrupted
+                interrupted = True
+                if b64_player:
+                    b64_player.cancel_playing()
             if "conversation.item.input_audio_transcription.text" == type:
                 text = response["stash"]
                 print(f"[ASR] got stash result: {text}")
@@ -87,6 +96,8 @@ class ASRCallback(OmniRealtimeCallback):
                 print("======[ASR] Speech Stop======")
             if "conversation.item.input_audio_transcription.completed" == type:
                 print(f"[ASR] final recognized text: {response['transcript']}")
+                # Start inference_and_speak in a new thread
+                start_inference_and_speak_thread(response["transcript"])
                 print(
                     f"[Metric] session: {qwen_asr_realtime.get_session_id()}, "
                     f"first text delay: {qwen_asr_realtime.get_last_first_text_delay()}, "
@@ -159,8 +170,86 @@ class TTSCallback(QwenTtsRealtimeCallback):
         self.finish_event.wait()
 
 
+chat_client = None
+user_id = None
+conversation_id = None
+timestamp = None
+phone = None
+
+# 用于标记是否中断当前的推理和TTS播放
+interrupted = False
+
+inference_and_speak_thread = None
+
+
 def inference_and_speak(text: str):
-    pass
+    global qwen_tts_realtime, interrupted
+    global chat_client, user_id, conversation_id, timestamp, phone
+
+    # Reset the stop flag at the beginning
+    interrupted = False
+
+    chat_response = chat_client.create_chat_message(
+        inputs={"timestamp": timestamp, "phone": phone},
+        query=text,
+        user=user_id,
+        response_mode="streaming",
+        conversation_id=conversation_id,
+    )
+    chat_response.raise_for_status()
+
+    for line in chat_response.iter_lines():
+        # Check if we should stop inference
+        if interrupted:
+            print("[Dify] Inference interrupted by user speech")
+            break
+
+        line = line.split("data:", 1)[-1]
+        if not line.strip():
+            continue
+
+        line = json.loads(line.strip())
+        if line.get("event") != "message":
+            continue
+
+        if conversation_id is None:
+            conversation_id = line.get("conversation_id")
+
+        answer = line.get("answer", "")
+        if not answer:
+            continue
+
+        print(f"[Dify] send text: {answer}")
+
+        # Check again before sending to TTS
+        if interrupted:
+            print("[Dify] TTS interrupted by user speech")
+            break
+
+        qwen_tts_realtime.append_text(answer)
+
+    # Only finish if not interrupted
+    if not interrupted:
+        qwen_tts_realtime.finish()
+    else:
+        # If interrupted, we need to cancel the TTS response
+        qwen_tts_realtime.cancel_response()
+
+
+def start_inference_and_speak_thread(text: str):
+    global inference_and_speak_thread, interrupted
+
+    # 如果之前的线程还在运行，先设置中断标志
+    if inference_and_speak_thread and inference_and_speak_thread.is_alive():
+        interrupted = True
+        # 等待之前的线程结束
+        inference_and_speak_thread.join(timeout=0.1)
+
+    # 创建并启动新线程
+    inference_and_speak_thread = threading.Thread(
+        target=inference_and_speak, args=(text,), daemon=True
+    )
+    inference_and_speak_thread.start()
 
 
 def signal_handler(sig, frame):
@@ -231,6 +320,16 @@ def main():
         response_format=AudioFormat.PCM_24000HZ_MONO_16BIT,
         mode="server_commit",
     )
+
+    logger.info("Initializing Dify...")
+    global dify_api_key, chat_client, user_id, timestamp, phone
+    chat_client = ChatClient(
+        api_key=dify_api_key,
+        base_url="http://100.85.209.38/v1",
+    )
+    user_id = str(uuid.uuid4())
+    timestamp = int(time.time())
+    phone = "13800138000"
 
     signal.signal(signal.SIGINT, signal_handler)
     print("Press Ctrl+C to stop conversation")
