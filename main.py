@@ -38,7 +38,6 @@ def init_dify_api_key():
 asr_pya = None
 mic_stream = None
 qwen_asr_realtime = None
-asr_pcm_file = None
 
 
 class ASRCallback(OmniRealtimeCallback):
@@ -94,7 +93,7 @@ def signal_handler(sig, frame):
     print("Ctrl+C pressed, stop conversation...")
 
     # Cleanup resources
-    global mic_stream, asr_pya, qwen_asr_realtime, asr_pcm_file
+    global mic_stream, asr_pya, qwen_asr_realtime
     if mic_stream:
         mic_stream.stop_stream()
         mic_stream.close()
@@ -105,9 +104,6 @@ def signal_handler(sig, frame):
     if qwen_asr_realtime:
         qwen_asr_realtime.close()
         qwen_asr_realtime = None
-    if asr_pcm_file:
-        asr_pcm_file.close()
-        asr_pcm_file = None
 
     # Forcefully exit the program
     print("Conversation stopped")
@@ -121,8 +117,7 @@ def main():
 
     logger.info("Initializing Qwen3 ASR Flash Realtime...")
 
-    global asr_pcm_file, qwen_asr_realtime
-    asr_pcm_file = open("./asr.pcm", "wb")
+    global qwen_asr_realtime
     asr_callback = ASRCallback()
     qwen_asr_realtime = OmniRealtimeConversation(
         model="qwen3-asr-flash-realtime",
@@ -148,7 +143,6 @@ def main():
     while True:
         if mic_stream:
             audio_data = mic_stream.read(3200, exception_on_overflow=False)
-            asr_pcm_file.write(audio_data)
             audio_b64 = base64.b64encode(audio_data).decode("ascii")
             qwen_asr_realtime.append_audio(audio_b64)
 
