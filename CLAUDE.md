@@ -27,6 +27,9 @@ uv run qwen3_asr_flash_realtime_demo.py
 
 # Run real-time TTS demo (text-to-speech)
 uv run qwen3_tts_flash_realtime_demo.py
+
+# Run Dify chat client demo with streaming mode
+uv run dify_client_chat_generate_with_streaming_mode_demo.py
 ```
 
 ## Architecture Overview
@@ -53,6 +56,13 @@ uv run qwen3_tts_flash_realtime_demo.py
 - Handles real-time audio streaming with configurable buffer sizes
 - Thread-safe audio queuing and optional file output
 - Supports various sample rates (16kHz, 24kHz)
+
+**Dify Chat Client Demo** (`dify_client_chat_generate_with_streaming_mode_demo.py`):
+
+- Demonstrates streaming chat interactions using Dify platform
+- Multi-turn conversation support with conversation ID management
+- Real-time response streaming with JSON event parsing
+- Customizable base URL and user inputs (timestamp, phone)
 
 ### Dependencies and Technology Stack
 
@@ -85,9 +95,11 @@ uv run qwen3_tts_flash_realtime_demo.py
 
 - The project uses **UV** as the package manager for faster dependency resolution
 - API keys are loaded from environment variables (never hardcoded)
+  - requires both `DASHSCOPE_API_KEY` and `DIFY_API_KEY`
 - Audio files are stored in PCM format for direct compatibility with PyAudio
 - Comprehensive debug logging is configured for development troubleshooting
 - The codebase includes example PCM audio files for testing purposes
+- Dify client demo connects to a local server instance (configurable base_url)
 
 ## Use Cases
 
@@ -98,3 +110,4 @@ This project serves as a reference implementation for:
 - Integration testing with Chinese language AI services
 - Audio processing pipeline development and benchmarking
 - Voice-enabled applications using Alibaba's DashScope platform
+- Streaming chat applications using Dify platform integration
