@@ -255,6 +255,13 @@ def start_inference_and_speak_thread(text: str):
 def signal_handler(sig, frame):
     print("Ctrl+C pressed, stop conversation...")
 
+    global interrupted
+    interrupted = True
+
+    global inference_and_speak_thread
+    if inference_and_speak_thread and inference_and_speak_thread.is_alive():
+        inference_and_speak_thread.join(timeout=0.1)
+
     # Cleanup resources
     global mic_stream, asr_pya, qwen_asr_realtime
     if mic_stream:
@@ -268,7 +275,14 @@ def signal_handler(sig, frame):
         qwen_asr_realtime.close()
         qwen_asr_realtime = None
 
-    global qwen_tts_realtime
+    global b64_player, tts_pya, qwen_tts_realtime
+    if b64_player:
+        b64_player.wait_for_complete()
+        b64_player.shutdown()
+        b64_player = None
+    if tts_pya:
+        tts_pya.terminate()
+        tts_pya = None
     if qwen_tts_realtime:
         qwen_tts_realtime.close()
         qwen_tts_realtime = None
