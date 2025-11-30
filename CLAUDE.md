@@ -9,34 +9,24 @@ This is a Python-based real-time AI audio processing demonstration project that 
 ## Common Development Commands
 
 ### Environment Setup
+
 ```bash
 # Create and activate virtual environment (Python 3.13+)
-python -m venv .venv
+uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies using UV
 uv sync
-
-# Alternative: Install with pip
-pip install -e .
 ```
 
 ### Running the Demos
+
 ```bash
 # Run real-time ASR demo (speech-to-text)
-python qwen3_asr_flash_realtime_demo.py
+uv run qwen3_asr_flash_realtime_demo.py
 
 # Run real-time TTS demo (text-to-speech)
-python qwen3_tts_flash_realtime_demo.py
-
-# Run basic entry point
-python main.py
-```
-
-### Setting API Key
-```bash
-# Set DashScope API key (required)
-export DASHSCOPE_API_KEY="your-api-key-here"
+uv run qwen3_tts_flash_realtime_demo.py
 ```
 
 ## Architecture Overview
@@ -44,18 +34,21 @@ export DASHSCOPE_API_KEY="your-api-key-here"
 ### Core Components
 
 **Real-time ASR Demo** (`qwen3_asr_flash_realtime_demo.py`):
+
 - WebSocket-based real-time audio streaming for speech recognition
 - 16kHz microphone input with live transcription
 - Uses DashScope's Qwen3 ASR Flash model via `wss://dashscope.aliyuncs.com/api-ws/v1/realtime`
 - Implements speech start/stop detection and audio recording to PCM files
 
 **Real-time TTS Demo** (`qwen3_tts_flash_realtime_demo.py`):
+
 - WebSocket-based text-to-speech synthesis
 - Multiple text chunk processing with 24kHz PCM audio output
 - Integrates with B64PCMPlayer for real-time audio playback
 - Uses Qwen3 TTS Flash model with customizable voice options
 
 **Audio Player Utility** (`B64PCMPlayer.py`):
+
 - Multi-threaded Base64 PCM audio player
 - Handles real-time audio streaming with configurable buffer sizes
 - Thread-safe audio queuing and optional file output
@@ -72,15 +65,18 @@ export DASHSCOPE_API_KEY="your-api-key-here"
 ### Key Technical Patterns
 
 **WebSocket Communication:**
+
 - Both demos use WebSocket connections to DashScope's real-time API
 - Callback-based event handling for session management
 - Streaming audio data in chunks with base64 encoding
 
 **Audio Processing Pipeline:**
+
 - ASR: Microphone → PyAudio → Base64 encoding → WebSocket → Text transcription
 - TTS: Text input → WebSocket → Base64 audio → B64PCMPlayer → Speaker output
 
 **Real-time Considerations:**
+
 - Chunk-based processing to minimize latency
 - Multi-threading for concurrent audio operations
 - Configurable buffer sizes (100ms chunks in TTS demo)
@@ -96,6 +92,7 @@ export DASHSCOPE_API_KEY="your-api-key-here"
 ## Use Cases
 
 This project serves as a reference implementation for:
+
 - Real-time voice assistants and conversational AI
 - Interactive audio applications requiring low latency
 - Integration testing with Chinese language AI services
