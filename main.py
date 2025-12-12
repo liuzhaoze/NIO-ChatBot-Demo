@@ -150,9 +150,9 @@ def save_audio():
 
 
 dashscope.base_http_api_url = "https://dashscope.aliyuncs.com/api/v1"
-DASHSCOPE_API_KEY = "sk-de74ecf6058e4399a663e45b9fa8c17f"
-DIFY_BASE_URL = "http://100.85.209.38/v1"
-DIFY_API_KEY = "app-YqE7rzJSFCG4qLvEMAPJi7vB"
+DASHSCOPE_API_KEY = "sk-XXXXXXXXXXXXXXXX"
+DIFY_BASE_URL = "http://xxx.xxx.xxx.xxx/v1"
+DIFY_API_KEY = "app-XXXXXXXXXXXXXXXX"
 USER_ID = str(uuid.uuid4())
 chat_client = dify.ChatClient(
     api_key=DIFY_API_KEY,
