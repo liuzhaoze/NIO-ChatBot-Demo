@@ -47,6 +47,18 @@ def init_dify_api_key():
         dify_api_key = "YOUR_API_KEY"
 
 
+dify_base_url = None
+
+
+def init_dify_base_url():
+    global dify_base_url
+
+    if "DIFY_BASE_URL" in os.environ:
+        dify_base_url = os.environ["DIFY_BASE_URL"]
+    else:
+        dify_base_url = "YOUR_BASE_URL"
+
+
 asr_pya = None
 mic_stream = None
 qwen_asr_realtime = None
@@ -296,6 +308,7 @@ def main():
     logging.basicConfig(level=logging.INFO)
     init_dashscope_api_key()
     init_dify_api_key()
+    init_dify_base_url()
 
     logger.info("Initializing Qwen3 ASR Flash Realtime...")
 
@@ -339,7 +352,7 @@ def main():
     global dify_api_key, chat_client, user_id, timestamp, phone
     chat_client = ChatClient(
         api_key=dify_api_key,
-        base_url="http://100.85.209.38/v1",
+        base_url=dify_base_url,
     )
     user_id = str(uuid.uuid4())
     timestamp = int(time.time())
