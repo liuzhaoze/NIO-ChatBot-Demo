@@ -1,0 +1,3 @@
+[submodule "dify-python-sdk"]
+	path = dify-python-sdk
+	url = https://github.com/langgenius/dify-python-sdk.git

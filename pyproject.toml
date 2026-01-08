@@ -14,5 +14,10 @@ dependencies = [
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
 
+[tool.uv.workspace]
+members = [
+    "dify-python-sdk",
+]
+
 [tool.uv.sources]
-dify-client = { path = "../dify/sdks/python-client" }
+dify-client = { workspace = true }
